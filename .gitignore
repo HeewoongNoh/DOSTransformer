@@ -133,3 +133,7 @@ dmypy.json
 *.pdf
 *.pt
 *.txt
+
+# git add .
+# git commit -m 'messages'
+# git push origin main

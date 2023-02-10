@@ -1,1 +1,0 @@
-from .gntransformer import GNTransformer
