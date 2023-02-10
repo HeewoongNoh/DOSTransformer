@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from layers.position_embedding import SinusoidalPositionalEmbedding
 from layers.multihead_attention import MultiheadAttention
 import math
-
+###Transformer Structure###
 
 class TransformerEncoder(nn.Module):
     """
