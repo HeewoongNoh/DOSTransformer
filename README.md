@@ -1,6 +1,11 @@
 # Material Density of States Prediction via Multi-Modal Transformer
-
-The offical source code for Material Density of States Prediction via Multi-Modal Transformer
+<p align="center">   
+    <a href="https://pytorch.org/" alt="PyTorch">
+      <img src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?e&logo=PyTorch&logoColor=white" /></a>
+    <a href="https://www.ml4materials.com/" alt="Workshop Conference">
+        <img src="https://img.shields.io/badge/ICLR 2023 ML4Materials-brightgreen" /></a>
+</p>
+The offical source code for Material Density of States Prediction via Multi-Modal Transformer paper, accepted at ICLR 2023 Workshop on Machine Learning for Materials (ML4Materials)
 
 ### Overview
 The density of states (DOS) is a spectral property of materials, which provides
@@ -11,7 +16,8 @@ Specifically, we integrate the heterogeneous information obtained from the cryst
 the energies via multi-modal transformer, thereby modeling the complex relation-
 ships between the atoms in the crystal structure, and various energy levels. Exten-
 sive experiments on two types of DOS, i.e., phonon DOS and electron DOS, with
-various real-world scenarios demonstrate the superiority of DOSTransformer.
+various real-world scenarios demonstrate the superiority of DOSTransformer.  
+![FIG_1](https://user-images.githubusercontent.com/62690984/223295679-55c6c32b-629d-4dae-b8a9-352992a8177e.png)  
 
 ### Phonon DOS Prediction
 #### Dataset
