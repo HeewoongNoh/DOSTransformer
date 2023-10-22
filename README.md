@@ -1,4 +1,11 @@
-# Density of States Prediction of Crystalline Materials via Prompt-based Multi-Modal Transformer
+# Predicting Density of States via Multi-Modal Transformer
+<p align="center">   
+    <a href="https://pytorch.org/" alt="PyTorch">
+      <img src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?e&logo=PyTorch&logoColor=white" /></a>
+    <a href="https://www.ml4materials.com/" alt="Workshop Conference">
+        <img src="https://img.shields.io/badge/ICLR 2023 ML4Materials-brightgreen" /></a>
+</p>
+The offical source code for [Predicting Density of States via Multi-Modal Transformer](https://arxiv.org/abs/2303.07000) paper, accepted at ICLR 2023 Workshop on Machine Learning for Materials (ML4Materials)
 
 The offical source code for Density of States Prediction of Crystalline Materials via Prompt-based Multi-Modal Transformer
  
