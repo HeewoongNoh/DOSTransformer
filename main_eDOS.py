@@ -6,8 +6,6 @@ import random
 from torch_geometric.loader import DataLoader
 from utils import parse_args,training_config,exp_get_name
 from utils import test, r2
-from embedder_eDOS import DOSTransformer, Graphnetwork, Graphnetwork2, mlp, mlp2
-
 
 
 # limit CPU usage
@@ -67,18 +65,23 @@ def main():
     attn_drop = args.attn_drop
     # Model selection
     if embedder =='DOSTransformer':
+        from embedder_eDOS.DOSTransformer import DOSTransformer
         model = DOSTransformer(args.layers, args.transformer, n_atom_feat, n_bond_feat, n_glob_feat, n_hidden, device, attn_drop).to(device)
 
     elif embedder == "graphnetwork":
+        from embedder_eDOS.graphnetwork import Graphnetwork
         model = Graphnetwork(args.layers, n_atom_feat, n_bond_feat,n_glob_feat, n_hidden, device).to(device)
 
     elif embedder == "graphnetwork2":
+        from embedder_eDOS.graphnetwork import Graphnetwork2
         model = Graphnetwork2(args.layers, n_atom_feat, n_bond_feat,n_glob_feat, n_hidden, device).to(device)
 
     elif embedder == "mlp":
+        from embedder_eDOS.mlp import mlp
         model = mlp(args.layers, n_atom_feat, n_bond_feat,n_glob_feat, n_hidden, device).to(device)
 
     elif embedder == "mlp2":
+        from embedder_eDOS.mlp import mlp2
         model = mlp2(args.layers, n_atom_feat, n_bond_feat, n_glob_feat, n_hidden, device).to(device)
 
     else :

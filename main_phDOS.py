@@ -6,7 +6,6 @@ import random
 from torch_geometric.loader import DataLoader
 import utils
 from utils import test_phonon, build_data, load_data, train_valid_test_split, r2
-from embedder_phDOS import DOSTransformer_phonon, Graphnetwork_phonon, Graphnetwork2_phonon, mlp_phonon, mlp2_phonon
 
 
 # limit CPU usage
@@ -59,24 +58,29 @@ def main():
     embedder = args.embedder.lower()
     n_hidden = args.hidden
     n_atom_feat = 118
-    n_bond_feat = 3
+    n_bond_feat = 4
     out_dim = len(df.iloc[0]['phfreq'])
     attn_drop = args.attn_drop
 
     # Model selection
     if embedder == "DOSTransformer_phonon":
+        from embedder_phDOS.DOSTransformer_phonon import DOSTransformer_phonon
         model = DOSTransformer_phonon(args.layers, args.transformer, n_atom_feat, n_bond_feat, n_hidden, out_dim, device).to(device)
 
     elif embedder == "graphnetwork":
+        from embedder_phDOS.graphnetwork_phonon import Graphnetwork_phonon
         model = Graphnetwork_phonon(args.layers, n_atom_feat, n_bond_feat, n_hidden, out_dim, device).to(device)
 
     elif embedder == "graphnetwork2":
+        from embedder_phDOS.graphnetwork_phonon import Graphnetwork2_phonon
         model = Graphnetwork2_phonon(args.layers, n_atom_feat, n_bond_feat, n_hidden, out_dim, device).to(device)
 
     elif embedder == "mlp":
+        from embedder_phDOS.mlp_phonon import mlp_phonon
         model = mlp_phonon(args.layers, n_atom_feat, n_bond_feat, n_hidden, out_dim, device).to(device)
 
     elif embedder == "mlp2":
+        from embedder_phDOS.mlp_phonon import mlp2_phonon
         model = mlp2_phonon(args.layers, n_atom_feat, n_bond_feat, n_hidden, out_dim, device).to(device)
 
     else :
