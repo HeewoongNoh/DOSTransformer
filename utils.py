@@ -14,6 +14,13 @@ from ase import Atoms
 from ase.neighborlist import neighbor_list
 from ase import Atom
 from torch_geometric.data import Data
+from sklearn.metrics import r2_score
+
+#R square 
+def r2(x1, x2):
+    x1 = x1.cpu().numpy()
+    x2 = x2.cpu().numpy()
+    return r2_score(x1.flatten(), x2.flatten(), multioutput='variance_weighted')
 
 def parse_args():
 
@@ -30,6 +37,9 @@ def parse_args():
     parser.add_argument("--hidden", type=int, default=256, help="Hidden dim")
     parser.add_argument("--random_state", type=int, default=0, help = 'Random state for dataset split')
     parser.add_argument("--dataset", type=str, default='whole', help = 'Dataset: ood_crystal or ood_element or whole')
+    parser.add_argument("--attn_drop", type=float, default=0.0, help = 'attention dropout ratio')
+    parser.add_argument("--seed", type=int, default=0, help = 'Random seed')
+    parser.add_argument("--beta", type=float, default=1.0, help = 'alpha for the spark loss2')
     return parser.parse_args()
 
 def training_config(args):
@@ -41,55 +51,96 @@ def training_config(args):
 def exp_get_name(train_config):
     name = ''
     dic = train_config
-    config = ["transformer", "layers","embedder", "lr", "batch_size", "hidden","random_state","dataset"]
+    config = ["seed","beta", 'attn_drop',"transformer", "layers","embedder", "lr", "batch_size", "hidden","random_state","dataset"]
 
     for key in config:
         a = f'{key}'+f'({dic[key]})'+'_'
         name += a
     return name
 
-def test(model, data_loader, criterion, device):
+def test(model, data_loader, criterion, r2, device):
+    model.eval()
+
+    preds_total, y_total, embeddings_total, mp_id_total = None, None, None, None
+    preds_y = list()
+
+    with torch.no_grad():
+        loss_rmse_sys, loss_mse_sys, loss_mae_sys, loss_r2_sys = 0, 0, 0, 0
+        for bc, batch in enumerate(data_loader):
+
+            batch.to(device)
+            preds_global, embeddings, preds_system  = model(batch)
+
+            zero = torch.tensor(0,dtype=torch.float).to(device)
+            y_ft = torch.where(batch.y_ft < 0, zero, batch.y_ft)
+            preds_system = torch.where(preds_system<0, zero, preds_system)
+
+            y = y_ft.reshape(len(batch.mp_id), -1)
+            mse_sys = ((y - preds_system)**2).mean(dim = 1)
+            rmse_sys = torch.sqrt(mse_sys)
+    
+            loss_mse_sys += mse_sys.mean()
+            loss_rmse_sys += rmse_sys.mean()
+            
+            mae_sys = criterion(preds_system, y).cpu()
+            loss_mae_sys += mae_sys
+
+            r2_score_sys = r2(y, preds_system)
+            loss_r2_sys += r2_score_sys
+
+            embeddings = scatter_sum(embeddings, batch.batch, dim=0) #For dos_system embeddings
+
+            if preds_total == None :
+                mp_id_total = batch.mp_id
+                preds_total = preds_system
+                y_total = y
+                embeddings_total = embeddings
+            
+            else :
+                mp_id_total = mp_id_total + batch.mp_id
+                preds_total = torch.cat([preds_total, preds_system], dim = 0)
+                y_total = torch.cat([y_total, y], dim = 0)
+                embeddings_total = torch.cat([embeddings_total, embeddings], dim = 0)
+
+        mp_id = mp_id_total
+        preds = preds_total.detach().cpu().numpy()
+        y = y_total.detach().cpu().numpy()
+        embeddings = embeddings_total.detach().cpu().numpy()
+        preds_y.append([mp_id, preds, y, embeddings])
+    
+    #rmse, mse, mae, r2, predicted y
+    return loss_rmse_sys/(bc + 1), loss_mse_sys/(bc+1), loss_mae_sys/(bc+1), loss_r2_sys/(bc+1), preds_y
+
+
+
+
+def test_phonon(model, data_loader, criterion, r2, device):
     model.eval()
 
     with torch.no_grad():
-        loss_rmse = 0
-        loss_mae = 0
-        for bc, batch in enumerate(data_loader):
-            batch.to(device)
-            preds  = model(batch) #Predicted eDOS
-
-            y = batch.y_ft.reshape(len(batch.mp_id), -1)
-            mse = ((y - preds)**2).mean(dim = 1)
-            rmse = torch.sqrt(mse)
-            mae = criterion(preds,y)
-            loss_rmse += rmse.mean()
-            loss_mae += mae
-
-    return loss_rmse/(bc + 1), loss_mae/(bc + 1)
-
-
-def test_phonon(model, data_loader, criterion,criterion2, device):
-    model.eval()
-
-    with torch.no_grad():
-        loss_rmse = 0
-        loss_mae = 0
+        loss_rmse_sys, loss_mse_sys, loss_mae_sys, loss_r2_sys = 0, 0, 0, 0
         for bc, batch in enumerate(data_loader):
             batch.to(device)
             
-            preds = model(batch)
-            y = batch.phdos
-            mse = criterion(preds, y).cpu()
-            mae = criterion2(preds, y).cpu()
-            rmse = torch.sqrt(mse).mean()
-            
-            loss_mae += mae
-            loss_rmse += rmse
+            preds_global, _, preds_system  = model(batch)
 
+            y = batch.phdos.reshape(preds_global.shape[0], -1)
+
+            mse_sys = ((y - preds_system)**2).mean(dim = 1)
+            rmse_sys = torch.sqrt(mse_sys)
+    
+            loss_mse_sys += mse_sys.mean()
+            loss_rmse_sys += rmse_sys.mean()
+            
+            mae_sys = criterion(preds_system, y).cpu()
+            loss_mae_sys += mae_sys
+
+            r2_score_sys = r2(y, preds_system)
+            loss_r2_sys += r2_score_sys
 
 
     
-    return loss_rmse/(bc + 1), loss_mae/(bc+1)
+    return loss_rmse_sys/(bc + 1), loss_mse_sys/(bc+1), loss_mae_sys/(bc+1), loss_r2_sys/(bc+1)
 
 
 # format progress bar
@@ -223,7 +274,20 @@ def build_data(entry, r_max=5.):
 
     # compute edge lengths (rounded only for plotting purposes)
     edge_len = np.around(edge_vec.norm(dim=1).numpy(), decimals=2)
-    
+    if entry.crystal_system == "Cubic":
+        system = 0
+    elif entry.crystal_system == "Hexagonal":
+        system = 1
+    elif entry.crystal_system == "Tetragonal":
+        system = 2
+    elif entry.crystal_system == "Trigonal":
+        system = 3
+    elif entry.crystal_system == "Orthorhombic":
+        system = 4
+    elif entry.crystal_system == "Monoclinic":
+        system = 5
+    else:
+        system = 6
     data = Data(
         pos=positions, lattice=lattice, symbol=symbols,
         x=am_onehot[[type_encoding[specie] for specie in symbols]],   # atomic mass (node feature)
@@ -231,7 +295,9 @@ def build_data(entry, r_max=5.):
         edge_index=torch.stack([torch.LongTensor(edge_src), torch.LongTensor(edge_dst)], dim=0),
         edge_shift=torch.tensor(edge_shift, dtype=default_dtype),
         edge_vec=edge_vec, edge_len=edge_len,
-        phdos=torch.from_numpy(entry.phdos).unsqueeze(0)
+        phdos=torch.from_numpy(entry.phdos).unsqueeze(0),
+        system = torch.tensor(system),
+        mp_id = entry.mp_id
     )
     
     return data

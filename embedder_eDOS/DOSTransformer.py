@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 from torch import nn
+import torch.nn.functional as F
 from torch_geometric.utils import to_dense_batch
 from layers import TransformerEncoder
 from torch_scatter import scatter_sum
@@ -9,49 +10,87 @@ from torch_scatter import scatter_sum
 ## DOSTransformer for eDOS
 ############################################################################################################################
 class DOSTransformer(nn.Module):
-    def __init__(self, layers, t_layers, n_atom_feats, n_bond_feats, n_glob_feats, n_hidden, dim_out, device):
+    def __init__(self, layers, t_layers, n_atom_feats, n_bond_feats, n_glob_feats, n_hidden, device,  attn_drop):
         super(DOSTransformer, self).__init__()
 
         # Energy embeddings
-        self.embeddings = nn.Embedding(201, n_hidden)
+        self.embeddings = nn.Embedding(201, n_hidden) 
+
+        # Prompt embeddings
+        self.promt_token = nn.Embedding(7, n_hidden//2)
 
         # Graph Neural Network
         self.GN_encoder = Encoder(n_atom_feats, n_bond_feats, n_glob_feats, n_hidden)
         self.stacked_processor = nn.ModuleList([Processor(EdgeModel(n_hidden), NodeModel(n_hidden)) for i in range(layers)])
-
-        # Crossmodal Attentions
+        
+        # Cross attention & Self attention
         self.transformer = TransformerEncoder(embed_dim = n_hidden,
-                                            num_heads = 1,
-                                            layers = t_layers)
+                                        num_heads = 1,
+                                        layers = t_layers, attn_dropout=attn_drop)
+        
+        self.transformer_self = TransformerEncoder(embed_dim = n_hidden,
+                                num_heads = 1,
+                                layers = t_layers, attn_dropout=attn_drop)
+        
+        self.transformer_source = TransformerEncoder(embed_dim = n_hidden,
+                                num_heads = 1,
+                                layers = t_layers, attn_dropout=attn_drop)
         
         self.GN_decoder = Decoder(n_hidden)
-        self.alpha = nn.Parameter(torch.rand(1))
-        self.out_layer = nn.Sequential(nn.Linear(n_hidden, n_hidden), nn.LayerNorm(n_hidden), nn.PReLU(), nn.Linear(n_hidden, 1))
+        self.out_layer = nn.Linear(n_hidden, 1)
+        self.fc_prompt = nn.Linear((n_hidden*2 + n_hidden//2),n_hidden)
+        self.fc = nn.Linear(n_hidden*2,n_hidden)
         self.device = device
 
     def forward(self, g):
 
         input_ids = torch.tensor(np.arange(201)).to(self.device)
-        energies = self.embeddings(input_ids)
+        token_ids = torch.tensor(np.arange(7)).to(self.device)
 
-        x, edge_attr, glob, energies = self.GN_encoder(x = g.x, edge_attr = g.edge_attr, glob = g.glob, batch = g.batch, energies = energies)
+        energies_global = self.embeddings(input_ids)
+        prompt_token = self.promt_token(token_ids)
+
+        
+        x, edge_attr, glob, energies_global = self.GN_encoder(x = g.x, edge_attr = g.edge_attr, glob = g.glob, batch = g.batch, energies = energies_global)
 
         for processor in self.stacked_processor:
             out_x, out_edge_attr = processor(x = x, edge_index = g.edge_index, edge_attr = edge_attr)
             x = x + out_x
             edge_attr = edge_attr + out_edge_attr
-        
+
         x_dense, _ = to_dense_batch(x, batch = g.batch)
         x_dense = x_dense.transpose(0, 1)
-
-        energies = self.transformer(energies, x_dense, x_dense)    
+        energies_global = self.transformer(energies_global, x_dense, x_dense) 
         
-        graph = self.GN_decoder(x, glob, g.batch)
-        graph = graph.reshape(-1, graph.shape[0], graph.shape[1]).expand(201,graph.shape[0], graph.shape[1])
-        dos = self.out_layer(energies + self.alpha * graph)  
-        dos = dos.squeeze(2).T     
+        graph = self.GN_decoder(x, glob, g.batch).repeat(201,1,1)  
 
-        return dos
+        dos_input  = torch.cat([energies_global, graph], dim=2 )
+
+        dos_input = F.leaky_relu(self.fc(dos_input)) 
+
+        dos_global = self.transformer_self(dos_input, dos_input, dos_input)
+
+        dos_global = self.transformer_source(dos_global, x_dense, x_dense)
+
+        dos_global = self.out_layer(dos_global) 
+   
+        dos_global = dos_global.squeeze(2).T     
+        
+        prompt_token = prompt_token[g.system].repeat(201,1,1) 
+   
+        dos_input  = torch.cat([energies_global, graph, prompt_token], dim=2 )  
+
+        dos_input = F.leaky_relu(self.fc_prompt(dos_input)) 
+
+        dos_system = self.transformer_self(dos_input, dos_input, dos_input)
+
+        dos_system = self.transformer_source(dos_system, x_dense, x_dense) 
+
+        dos_system = self.out_layer(dos_system)  
+   
+        dos_system = dos_system.squeeze(2).T 
+        
+        return dos_global, x, dos_system
 
 
 ############################################################################################################################
