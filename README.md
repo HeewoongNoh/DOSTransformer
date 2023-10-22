@@ -1,7 +1,7 @@
 # Predicting Density of States via Multi-Modal Transformer
 <p align="center">   
     <a href="https://pytorch.org/" alt="PyTorch">
-      <img src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?e&logo=PyTorch&logoColor=brightgreen" /></a>
+      <img src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?e&logo=PyTorch&logoColor=brightblue" /></a>
     <a href="https://nips.cc/" alt="Main conference">
         <img src="https://img.shields.io/badge/2023 Neurips-red" /></a>
 </p>
@@ -13,6 +13,7 @@ The offical source code for Density of States Prediction of Crystalline Material
 ### Overview
 The density of states (DOS) is a spectral property of crystalline materials, which provides fundamental insights into various characteristics of the materials. While previous works mainly focus on obtaining high-quality representations of crystalline materials for DOS prediction, we focus on predicting the DOS from the obtained representations by reflecting the nature of DOS: DOS determines the general distribution of states as a function of energy. That is, DOS is not solely determined by the crystalline material but also by the energy levels, which has been neglected in previous works. In this paper, we propose to integrate heterogeneous information obtained from the crystalline materials and the energies via a multimodal transformer, thereby modeling the complex relationships between the atoms in the crystalline materials and various energy levels for DOS prediction. Moreover, we propose to utilize prompts to guide the model to learn the crystal structural system-specific interactions between crystalline materials and energies. Extensive experiments on two types of DOS, i.e., Phonon DOS and Electron DOS, with various real-world scenarios demonstrate the superiority of DOSTransformer.
 
+![DOSTransformer_model_img](https://github.com/HeewoongNoh/DOSTransformer/assets/62690984/ae69a43a-20fd-4038-92b3-12938feacc8e)
 ### Phonon DOS Prediction
 #### Dataset
 You can dowload phonon dataset in this [repository](https://github.com/ninarina12/phononDoS_tutorial)  
