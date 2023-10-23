@@ -1,4 +1,4 @@
-# Predicting Density of States via Multi-Modal Transformer
+# Density of States Prediction of Crystalline Materials via Prompt-guided Multi-Modal Transformer
 <p align="center">   
     <a href="https://pytorch.org/" alt="PyTorch">
       <img src="https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?e&logo=PyTorch&logoColor=white" /></a>
@@ -6,7 +6,7 @@
         <img src="https://img.shields.io/badge/2023 Neurips-blue" /></a>
 </p>
 
-# Density of States Prediction of Crystalline Materials via Prompt-guided Multi-Modal Transformer
+<!-- # Density of States Prediction of Crystalline Materials via Prompt-guided Multi-Modal Transformer -->
 
 The offical source code for Density of States Prediction of Crystalline Materials via Prompt-guided Multi-Modal Transformer, accepted at 2023 Neurips main conference.
  
